@@ -94,15 +94,15 @@ void setup() {
   
   // Initialize serial communication with a 9600 baud rate, through microUSB
   // Serial.begin(9600);
-  // // while (!Serial);  // wait for the serial port to open
-  // // Serial.println("USB Serial Initialized"); // output to console when opened
+  // while (!Serial);  // wait for the serial port to open
+  // Serial.println("USB Serial Initialized"); // output to console when opened
 
   // Initialize serial communication to RPi (9600 bps, 8 bits, No Parity, 1 Stop Bit)
   // If only connected to RPi, use next line and RX0/TX) pins
   PiComm.begin(9600, SERIAL_8N1, espRX, espTX);
   // If connected through USB to ESP use RX2/TX2 pins, for flashing
   //PiComm.begin(9600);
-  PiComm.setDebugOutput(true);
+  //PiComm.setDebugOutput(true);
   while(!PiComm); // wait for serial port to open
   // // Serial.println("Serial Initialized"); // output to console when opened
   
@@ -137,6 +137,14 @@ void setup() {
     // Serial.println("Ooops, no HMC5883 detected ... Check your wiring!");
     while(1);
   }
+
+  int bigMinUs = 365; // 365 for MG996R servo (manually calibrated)
+  int bigMaxUs = 2470; // 2460-2480 for MG996R servo (manually calibrated)
+
+  shaftServo.attach(shaftPWM, bigMinUs, bigMaxUs);
+  shaftServoInvert.attach(shaftPWMInvert, bigMinUs, bigMaxUs);
+  handServo.attach(scraperPWM, bigMinUs, bigMaxUs);
+  pwm.attachPin(27, 10000); //10khz frequency
 
   // Give sensors & serial communication time to initialize (100 ms)
   delay(100);
@@ -333,62 +341,51 @@ void closeTray() {
   }
 }
 
-int bigMinUs = 365; // 365 for MG996R servo (manually calibrated)
-int bigMaxUs = 2470; // 2460-2480 for MG996R servo (manually calibrated)
 // int smallMinUs = 500; // 500 for SG90 servo (manually calibrated)
 // int smallMaxUs = 2400; // 2400 for SG90 servo (manually calibrated)
+int lastPosition;
 
 void lowerShaft() {
-  int pos = 0;
-  shaftServo.attach(shaftPWM, bigMinUs, bigMaxUs);
-  shaftServoInvert.attach(shaftPWMInvert, bigMinUs, bigMaxUs);
-  pwm.attachPin(27, 10000); //10khz frequency
 
-  // Turn from 160 degrees to 50 degrees in steps of 1 degree
-  for (pos = 160; pos >= 50; pos -= 1) { 
+  if (lastPosition < 180) {
+    return;
+  }
+
+  // Turn from 180 degrees to 30 degrees in steps of 1 degree
+  for (int pos = 180; pos >= 30; pos -= 1) { 
 		shaftServo.write(pos);
-    shaftServoInvert.write((160-pos)+50);
+    shaftServoInvert.write((180-pos)+30);
 		delay(20);
 	}
 
   // Print message to computer (troubleshooting)
+  lastPosition = shaftServo.read();
   // Serial.print("Shaft servo value: ");
-  // Serial.println(shaftServo.read());
-
-  shaftServo.detach();
-  shaftServoInvert.detach();
-  pwm.detachPin(27);
+  // Serial.println(lastPosition);
 }
 
 void raiseShaft() {
-  int pos = 0;
-  shaftServo.attach(shaftPWM, bigMinUs, bigMaxUs);
-  shaftServoInvert.attach(shaftPWMInvert, bigMinUs, bigMaxUs);
-  pwm.attachPin(27, 10000); //10khz frequency
+  
+  if (lastPosition > 30) {
+    return;
+  }
 
   // Turn from 50 degrees to 160 degrees in steps of 1 degree
-  for (pos = 50; pos <= 160; pos += 1) { 
+  for (int pos = 30; pos <= 180; pos += 1) { 
 		shaftServo.write(pos);
-    shaftServoInvert.write((160-pos)+50);
+    shaftServoInvert.write((180-pos)+30);
 		delay(20);             // waits 20ms for the servo to reach the position
 	}
 
   // Print message to computer (troubleshooting)
+  lastPosition = shaftServo.read();
   // Serial.print("Shaft servo value: ");
   // Serial.println(shaftServo.read());
-
-  shaftServo.detach();
-  shaftServoInvert.detach();
-  pwm.detachPin(27);
 }
 
 void closeHands() {
-  int pos = 0;
-  handServo.attach(scraperPWM, bigMinUs, bigMaxUs);
-  pwm.attachPin(27, 10000);//10khz
-
   // Turn from 170 degrees to 10 degrees in steps of 1 degree
-  for (pos = 170; pos >= 10; pos -= 1) { 
+  for (int pos = 170; pos >= 10; pos -= 1) { 
 		handServo.write(pos);
 		delay(10);             // waits 10ms for the servo to reach the position
 	}
@@ -396,18 +393,11 @@ void closeHands() {
   // Print message to computer (troubleshooting)
   // Serial.print("Hand servo value: ");
   // Serial.println(handServo.read());
-
-  handServo.detach();
-  pwm.detachPin(27);
 }
 
 void openHands() {
-  int pos = 0;
-  handServo.attach(scraperPWM, bigMinUs, bigMaxUs);
-  pwm.attachPin(27, 10000);//10khz
-
   // Turn from 10 degrees to 170 degrees in steps of 1 degree
-  for (pos = 10; pos <= 170; pos += 1) { 
+  for (int pos = 10; pos <= 170; pos += 1) { 
 		handServo.write(pos);
 		delay(10);             // waits 10ms for the servo to reach the position
 	}
@@ -415,9 +405,6 @@ void openHands() {
   // Print message to computer (troubleshooting)
   // Serial.print("Hand servo value: ");
   // Serial.println(handServo.read());
-
-  handServo.detach();
-  pwm.detachPin(27);
 }
 
 void loop() {
@@ -829,7 +816,7 @@ void loop() {
       leftMotor.backward();
       rightMotor.forward();
 
-      while(ps5.L1());
+      while(ps5.L1()) delay(1);
 
       leftMotor.stop();
       rightMotor.stop();
@@ -841,7 +828,9 @@ void loop() {
       leftMotor.forward();
       rightMotor.backward();
 
-      while(ps5.R1());
+      while(ps5.R1()){
+        delay(1);
+      }
 
       leftMotor.stop();
       rightMotor.stop();
@@ -850,27 +839,45 @@ void loop() {
     if (ps5.Touchpad()) {
       ps5.setRumble(0, sonar.ping_cm());
     }
-
-    // L2 - Reverse
-    if (ps5.L2Value() > 55) {
-      // Serial.print("L2 button at ");
-      // Serial.println(ps5.L2Value());
-      leftMotor.setSpeed(ps5.L2Value());
-      leftMotor.backward();
-      rightMotor.setSpeed(ps5.L2Value());
-      rightMotor.backward();
+    
+    if(ps5.L2()){
+      if(ps5.L2Value() > 60){
+        leftMotor.setSpeed(ps5.L2Value());
+        rightMotor.setSpeed(ps5.L2Value());
+        rightMotor.backward();
+        leftMotor.backward();
+        // Serial.println("Moving back");
+      } else {
+        leftMotor.stop();
+        rightMotor.stop();
+      }
+      
+    } else if(ps5.R2()){
+      if(ps5.R2Value() > 60){
+        leftMotor.setSpeed(ps5.R2Value());
+        rightMotor.setSpeed(ps5.R2Value());
+        rightMotor.forward();
+        leftMotor.forward();
+        // Serial.println("Moving forward");
+      } else {
+        leftMotor.stop();
+        rightMotor.stop();
+      }
+    } else {
+      if(leftMotor.getSpeed() > 0 || rightMotor.getSpeed() > 0){
+        leftMotor.setSpeed(0);
+        rightMotor.setSpeed(0);
+        leftMotor.stop();
+        rightMotor.stop();
+        // Serial.println("Reset speed to 0");
+      }
+      
     }
-    // R2 - Forward
-    if (ps5.R2Value() > 55) {
-      // Serial.print("R2 button at ");
-      // Serial.println(ps5.R2Value());
-      leftMotor.setSpeed(ps5.R2Value());
-      leftMotor.forward();
-      rightMotor.setSpeed(ps5.R2Value());
-      rightMotor.forward();
-    }
+    // Serial.println(ps5.R2Value());
+    // Serial.println(ps5.L2Value());
   }
 
+  delay(100);
   // If there was an error detected then print msg to computer
   if (error) {
     // Serial.println("Something went wrong!");
