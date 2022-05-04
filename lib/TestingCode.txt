@@ -1,0 +1,621 @@
+
+-------------------------------------------------------------------
+Motor Driver Reference:
+IN1 & IN2 control Motor A
+IN3 & IN4 control Motor B
+
+Both IN set 0/1: Motor is off
+IN1/3 set to 1 & IN2/4 set to 0: Motor rotates clockwise
+IN1/3 set to 0 & IN2/4 set to 1: Motor rotates counter-clockwise
+-------------------------------------------------------------------
+Minimum pulse width for TowerPro MG-996R (0 degrees): int minUs = 365;
+Maximum pulse width for TowerPro MG-996R (180 degrees): int maxUs = (2460-2480)
+-------------------------------------------------------------------
+
+
+
+___________________________________________________________________
+    Code to test UART serial communication through GPIO with RPi
+-------------------------------------------------------------------
+void setup() {
+    MySerial.begin(9600, SERIAL_8N1, espRX, espTX);
+    MySerial.setDebugOutput(true);
+  while(!MySerial); // wait for serial port to open
+  Serial.println("Serial Initialized"); // output to console when opened
+}
+byte number = 6;
+byte input = 0;
+void loop() {
+    if (MySerial.available()) {
+    uint8_t byteFromSerial = MySerial.read();
+    Serial.print("Character received: ");
+    Serial.println(byteFromSerial);
+  }
+
+  MySerial.write('6');
+  delay(500);
+
+  MySerial.write(number);
+  input = MySerial.read();
+  Serial.print("Character received: ");
+  Serial.println(input, DEC);
+
+  if (MySerial.available() > 0) {
+    //String data = MySerial.readStringUntil('\n'));
+    // int data = MySerial.read() - '0';
+    // Serial.print("You sent me: ");
+    // Serial.println(data);
+    // MySerial.print("You sent me: NUT");
+    // MySerial.println(data);
+
+    String number = MySerial.readString();
+    Serial.print("Character received: ");
+    Serial.println(number);
+    MySerial.write(number.toInt());
+  }
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+  Code for basic movement of motors using L298N motor driver library
+-------------------------------------------------------------------
+void loop() {
+  trayMotor.setSpeed(200);
+
+  // Move the DC motor forward at maximum speed
+  Serial.println("Moving Forward");
+  // digitalWrite(trayMDriverIn1, LOW);
+  // digitalWrite(trayMDriverIn2, HIGH); 
+  // digitalWrite(trayEnable, HIGH);
+  trayMotor.forward();
+  delay(2000);
+
+  // Stop the DC motor
+  Serial.println("Motor stopped");
+  // digitalWrite(trayMDriverIn1, LOW);
+  // digitalWrite(trayMDriverIn2, LOW);
+  // digitalWrite(trayEnable, LOW);
+  trayMotor.stop();
+  delay(1000);
+
+  trayMotor.setSpeed(100);
+
+  // Move DC motor backwards at half speed
+  Serial.println("Moving Backwards");
+  // digitalWrite(trayMDriverIn1, HIGH);
+  // digitalWrite(trayMDriverIn2, LOW);
+  // digitalWrite(trayEnable, HIGH); 
+  trayMotor.backward();
+  delay(2000);
+
+  // Stop the DC motor
+  Serial.println("Motor stopped");
+  // digitalWrite(trayMDriverIn1, LOW);
+  // digitalWrite(trayMDriverIn2, LOW);
+  // digitalWrite(trayEnable, LOW);
+  trayMotor.stop();
+  delay(1000);
+}
+-------------------------------------------------------------------
+  Code for moving motor with increasing/decreasing speed
+-------------------------------------------------------------------
+void loop() {
+  unsigned short dutyCycle = 50;
+  while (dutyCycle < 255){ 
+    trayMotor.setSpeed(dutyCycle);
+    trayMotor.forward();
+    Serial.print("Forward with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
+    dutyCycle = dutyCycle + 5;
+    delay(500);
+  }
+
+  trayMotor.setSpeed(dutyCycle);
+  trayMotor.forward();
+  Serial.print("Forward at pwm of: ");
+  Serial.print(dutyCycle);
+  Serial.print(" with function reading of: ");
+  Serial.println(trayMotor.getSpeed());
+  delay(1000);
+
+  while (dutyCycle >= 90) {
+    trayMotor.setSpeed(dutyCycle);
+    trayMotor.forward();
+    Serial.print("Forward with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
+    dutyCycle = dutyCycle - 5;
+    delay(500);
+  }
+  delay(1000);
+}
+-------------------------------------------------------------------
+  Old, no longer used, motor driving functions
+-------------------------------------------------------------------
+void forward() {
+  unsigned short dutyCycle = 50;
+
+  // Move DC motor forward with increasing speed
+  for (; dutyCycle < 250; dutyCycle = dutyCycle + 5) {
+    rightMotor.setSpeed(dutyCycle);
+    leftMotor.setSpeed(dutyCycle);
+    rightMotor.forward();
+    leftMotor.forward();
+    Serial.print("Forward with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(rightMotor.getSpeed());
+    delay(500);
+  }
+
+  // Move DC motor forward with decreasing speed
+  for (; dutyCycle > 80; dutyCycle = dutyCycle - 5) {
+    rightMotor.setSpeed(dutyCycle);
+    leftMotor.setSpeed(dutyCycle);
+    rightMotor.forward();
+    leftMotor.forward();
+    Serial.print("Forward with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(leftMotor.getSpeed());
+    delay(500);
+  }
+}
+void reverse() {
+  unsigned short dutyCycle = 50;
+
+  // Move DC motor forward with increasing speed
+  for (; dutyCycle < 250; dutyCycle = dutyCycle + 5) {
+    rightMotor.setSpeed(dutyCycle);
+    leftMotor.setSpeed(dutyCycle);
+    rightMotor.backward();
+    leftMotor.backward();
+    Serial.print("Reverse with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(rightMotor.getSpeed());
+    delay(500);
+  }
+
+  // Move DC motor forward with decreasing speed
+  for (; dutyCycle > 80; dutyCycle = dutyCycle - 5) {
+    rightMotor.setSpeed(dutyCycle);
+    leftMotor.setSpeed(dutyCycle);
+    rightMotor.backward();
+    leftMotor.backward();
+    Serial.print("Reverse with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(leftMotor.getSpeed());
+    delay(500);
+  }
+}
+void stopDriving() {
+  digitalWrite(trackMDriverIn1, HIGH);
+  digitalWrite(trackMDriverIn2, HIGH);
+
+  digitalWrite(trackMDriverIn3, HIGH);
+  digitalWrite(trackMDriverIn4, HIGH);
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+    Code for calibrating minimum & maximum pulse width of servos
+-------------------------------------------------------------------
+int sweep(int value, int delta) {
+   while(!Serial.available())
+   {
+     bigServos.attach(bigServosPWM, value, value);
+     bigServos.write(0);
+     Serial.println(value);
+     delay(300);
+     bigServos.detach();
+     value = value + delta;  
+   }
+   while(Serial.available())
+     Serial.read();
+  return value;
+} 
+int search(int value, int delta, boolean starts) {
+  top:
+   starts ? Serial.println("Press any key when the servo starts moving") : 
+            Serial.println("Press any key when the servo stops moving");
+   delay(1000);
+   value = sweep(value, delta);
+   if(abs(delta) <= 1)
+     return value;  
+   delta /= -2;
+   starts = !starts;
+   
+   delay(1000);  
+   goto top; 
+}
+void setup() {
+    Serial.println("Searching for low pulse width");
+  int low = search(100, 64, true);
+  
+  Serial.println("Got low pulse width...");
+  delay(500);
+  
+  Serial.println("Searching for high pulse width");
+  int high = search(low, 128, false);
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Got low pulse width of ");
+  Serial.println(low);
+  Serial.print("Got high pulse width of ");
+  Serial.println(high);
+  Serial.print("Example code: myservo.attach(");
+  Serial.print(bigServosPWM);
+  Serial.print(", ");
+  Serial.print(low);
+  Serial.print(", ");
+  Serial.print(high);
+  Serial.println(");");
+  
+  Serial.println();
+  Serial.println("Done (sweeping.)");
+  
+  bigServos.attach(bigServosPWM, low, high);
+}
+void loop() 
+{ 
+   // Just loop through the range we found
+   while(true)
+   {
+     bigServos.write(0);
+     delay(4000);
+     bigServos.write(180);
+     delay(4000);
+   }
+} 
+-------------------------------------------------------------------
+    Code for testing servos movement
+-------------------------------------------------------------------
+void loop() {
+    int pos = 0;
+    smallServos.attach(smallServosPWM, minUs, maxUs);
+  bigServos.attach(bigServosPWM, minUs, maxUs);
+  pwm.attachPin(27, 10000);//10khz
+
+  delay(1000);
+  for (pos = 35; pos <= 170; pos += 1) { // sweep from 0 degrees to 180 degrees
+		// in steps of 1 degree
+		bigServos.write(pos);
+    smallServos.write((170-pos)+35);
+		delay(10);             // waits 20ms for the servo to reach the position
+	}
+  Serial.print("Big servo value: ");
+  Serial.println(bigServos.read());
+  Serial.print("Small servo value: ");
+  Serial.println(smallServos.read());
+  delay(2000);
+	for (pos = 170; pos >= 35; pos -= 1) { // sweep from 180 degrees to 0 degrees
+		bigServos.write(pos);
+    smallServos.write((170-pos)+35);
+		delay(15);
+	}
+  
+  Serial.print("Big servo value: ");
+  Serial.println(bigServos.read());
+  Serial.print("Small servo value: ");
+  Serial.println(smallServos.read());
+  
+  bigServos.detach();
+  smallServos.detach();
+  pwm.detachPin(27);
+  delay(5000);
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+    Code for reading distance (cm) from the ultrasonic sensors
+-------------------------------------------------------------------
+long duration;
+int distance;
+void ultrasonicReading() {
+  // Clears the trigPin
+  digitalWrite(frontUltrasonicTrig, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(frontUltrasonicTrig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(frontUltrasonicTrig, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(frontUltrasonicEcho, HIGH);
+  // Calculating the distance
+  distance = duration * 0.034 / 2;
+  // Prints the distance on the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.println(distance);
+}
+void readFrontUltrasonic() {
+  Serial.print("Sonar Ping: ");
+  Serial.print(sonar.ping_cm()); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
+}
+void readBinUltrasonic() {
+  Serial.print("Bin Ping: ");
+  Serial.print(binFill.ping_cm()); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
+}
+void loop() {
+    Serial.println(sonar.convert_cm(sonar.ping_median(50, 300)));
+
+    delay(1000);                     // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+  Serial.print("Ping1: ");
+  Serial.print(sonar.ping_cm()); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
+
+  delay(1000);                     // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+  Serial.print("Ping2: ");
+  Serial.print(binFill.ping_cm()); // Send ping, get distance in cm and print result (0 = outside set distance range)
+  Serial.println("cm");
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+  Code for reading values from & testing GY-271 magnetometer
+-------------------------------------------------------------------
+void loop() {
+  sensor_t sensor;
+  mag.getSensor(&sensor);
+  Serial.println("------------------------------------");
+  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
+  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
+  Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
+  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" uT");
+  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" uT");
+  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" uT");  
+  Serial.println("------------------------------------");
+  Serial.println("");
+  delay(500);
+
+  while(1) {
+    // Get a new sensor event 
+  sensors_event_t event; 
+  mag.getEvent(&event);
+ 
+  // Display the results (magnetic vector values are in micro-Tesla (uT)) 
+  Serial.print("X: "); Serial.print(event.magnetic.x); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(event.magnetic.y); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(event.magnetic.z); Serial.print("  ");Serial.println("uT");
+
+  // Hold the module so that Z is pointing 'up' and you can measure the heading with x&y
+  // Calculate heading when the magnetometer is level, then correct for signs of axis.
+  float heading = atan2(event.magnetic.y, event.magnetic.x);
+  
+  // Once you have your heading, you must then add your 'Declination Angle', which is the 'Error' of the magnetic field in your location.
+  // Find yours here: http://www.magnetic-declination.com/
+  // Mine is: -13* 2' W, which is ~13 Degrees, or (which we need) 0.22 radians
+  // If you cannot find your Declination, comment out these two lines, your compass will be slightly off.
+  float declinationAngle = 0.0573;
+  heading += declinationAngle;
+  Serial.println(heading);
+  
+  // Correct for when signs are reversed.
+  if(heading < 0)
+    heading += 2*PI;
+    
+  // Check for wrap due to addition of declination.
+  if(heading > 2*PI)
+    heading -= 2*PI;
+   
+  Serial.println(heading);
+  // Convert radians to degrees for readability.
+  float headingDegrees = heading * 180/PI; 
+  
+  Serial.print("Heading (degrees): "); Serial.println(headingDegrees);
+  
+  delay(500);
+  }
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+    Code for testing and calibrating the BMI160 accelerometer/gyroscope
+-------------------------------------------------------------------
+/* Library and variable initialization for degree calculations from BMI160 */
+#include <MadgwickAHRS.h>
+Madgwick filter;
+unsigned long microsPerReading, microsPrevious;
+
+void setup() {
+    // Initialize BMI-160 sensor for SPI communication
+  BMI160.begin(BMIChipSelect);
+  // Set gyroscope & accelerometer rate to 25
+  BMI160.setAccelerometerRate(25);
+  BMI160.setGyroRate(25);
+  // Set accelerometer range to 2G
+  BMI160.setAccelerometerRange(2);
+  // Set the gyroscope range to 250 degrees/second
+  BMI160.setGyroRange(250);
+}
+// Section of setup code used for testing/callibrating BMI
+void setup() {
+  Serial.println("Calibrating gyro");
+  Serial.println("Old gyro offset");
+  Serial.println(BMI160.getGyroOffset(X_AXIS));
+  Serial.println(BMI160.getGyroOffset(Y_AXIS));
+  Serial.println(BMI160.getGyroOffset(Z_AXIS));
+
+  Serial.println("Starting autocalibration remain device still");
+  Serial.println("Remain still in...");
+  for(int i=0; i < 3; i++){
+    Serial.println(i + "s");
+    delay(1000);
+  }
+
+  BMI160.autoCalibrateAccelerometerOffset(X_AXIS, 0);
+  BMI160.autoCalibrateAccelerometerOffset(Y_AXIS, 0);
+  BMI160.autoCalibrateAccelerometerOffset(Z_AXIS, 1);
+
+  BMI160.autoCalibrateGyroOffset();
+  // BMI160.setGyroOffset(X_AXIS, -31.171);
+  // BMI160.setGyroOffset(Y_AXIS, -31.171);
+  // BMI160.setGyroOffset(Z_AXIS, -31.171);
+
+  Serial.println("New gyro offset");
+  Serial.println(BMI160.getGyroOffset(X_AXIS));
+  Serial.println(BMI160.getGyroOffset(Y_AXIS));
+  Serial.println(BMI160.getGyroOffset(Z_AXIS));
+
+  Serial.println("Calibration Complete");
+
+  //BMI160.begin(BMI160GenClass::I2C_MODE);
+  uint8_t dev_id = BMI160.getDeviceID();
+  Serial.print("DEVICE ID: ");
+  Serial.println(dev_id, HEX);
+
+  BMI160.setGyroOffsetEnabled(true);
+
+  Serial.println("Is accel offset enabled:");
+  Serial.print(BMI160.getAccelOffsetEnabled());
+  Serial.println("Is gyros offset enabled:");
+  Serial.print(BMI160.getGyroOffsetEnabled());
+
+  filter.begin(25);
+
+  // initialize variables to pace updates to correct rate
+  microsPerReading = 1000000 / 25;
+  microsPrevious = micros();
+}
+float convertRawAcceleration(int aRaw) {
+  // since we are using 2G range
+  // -2g maps to a raw value of -32768
+  // +2g maps to a raw value of 32767
+
+  float a = (aRaw * 2.0) / 32768.0;
+
+  return a;
+}
+
+float convertRawGyro(int gRaw) {
+  // since we are using 250 degrees/seconds range
+  // -250 maps to a raw value of -32768
+  // +250 maps to a raw value of 32767
+
+  float g = (gRaw * 250.0) / 32768.0;
+
+  return g;
+}
+// Loop used for outputting the gyroscope & accelerometer readings through Madgwick's algorithm
+void loop() {
+  // put your main code here, to run repeatedly:
+  int aix, aiy, aiz;
+
+  int gix, giy, giz;
+
+  float ax, ay, az;
+
+  float gx, gy, gz;
+
+  float roll, pitch, heading;
+
+  unsigned long microsNow;
+
+  // check if it's time to read data and update the filter
+
+  microsNow = micros();
+
+  if (microsNow - microsPrevious >= microsPerReading) {
+
+    // read raw data from CurieIMU
+
+    CurieIMU.readMotionSensor(aix, aiy, aiz, gix, giy, giz);
+
+    // convert from raw data to gravity and degrees/second units
+
+    ax = convertRawAcceleration(aix);
+
+    ay = convertRawAcceleration(aiy);
+
+    az = convertRawAcceleration(aiz);
+
+    gx = convertRawGyro(gix);
+
+    gy = convertRawGyro(giy);
+
+    gz = convertRawGyro(giz);
+
+    // update the filter, which computes orientation
+
+    filter.updateIMU(gx, gy, gz, ax, ay, az);
+
+    // print the heading, pitch and roll
+
+    roll = filter.getRoll();
+
+    pitch = filter.getPitch();
+
+    heading = filter.getYaw();
+
+    Serial.print("Orientation: ");
+
+    Serial.print(heading);
+
+    Serial.print(" ");
+
+    Serial.print(pitch);
+
+    Serial.print(" ");
+
+    Serial.println(roll);
+
+    // increment previous time, so we keep proper pace
+
+    microsPrevious = microsPrevious + microsPerReading;
+
+  }
+}
+// Loop for outputting the raw gyroscope measurements
+void loop() {
+  int gxRaw, gyRaw, gzRaw;         // raw gyro values
+  float gx, gy, gz;
+
+  // read raw gyro measurements from device
+  BMI160.readGyro(gxRaw, gyRaw, gzRaw);
+
+  // convert the raw gyro data to degrees/second
+  gx = convertRawGyro(gxRaw);
+  gy = convertRawGyro(gyRaw);
+  gz = convertRawGyro(gzRaw);
+
+  // display tab-separated gyro x/y/z values
+  Serial.print("g:\t");
+  Serial.print(gx);
+  Serial.print("\t");
+  Serial.print(gy);
+  Serial.print("\t");
+  Serial.print(gz);
+  Serial.println();
+
+  delay(500);
+}
+___________________________________________________________________
+
+
+
+___________________________________________________________________
+    Other miscellaneous/random code testing snippets
+-------------------------------------------------------------------
+void setup() {
+    spi_t * SPI = spiStartBus(VSPI, SPI_CLOCK_DIV4, SPI_MODE0, SPI_LSBFIRST);
+}
+void loop() {
+}
+___________________________________________________________________
