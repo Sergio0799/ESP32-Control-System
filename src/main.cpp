@@ -1,5 +1,13 @@
 /* Include necessary libraries */
-// Arduino & Serial communication:
+//OTA functions
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+
+
+
+// Arduino & serial communication:
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
@@ -32,7 +40,8 @@ const int trayMDriverIn2 = 15;
 const int trayMDriverIn1 = 2;
 const int trackMDriverIn4 = 25;
 const int trackMDriverIn3 = 26;
-const int trackMDriverIn2 = 27;
+//const int trackMDriverIn2 = 27;
+const int trackMDriverIn2 = 5;
 const int trackMDriverIn1 = 14;
 const int trayEnable = 4;
 const int track1Enable = 13;
@@ -51,7 +60,7 @@ const int espTX = 1;
 // const int I2CSerialClock = 22;
 const int CompassData = 21;
 // SPI Communication w/ BMI
-const int BMIChipSelect = 5;
+//const int BMIChipSelect = 5;
 const int BMISerialClock = 18;
 const int BMIMISO = 19;
 const int BMIMOSI = 23;
@@ -69,7 +78,7 @@ L298N trayMotor(trayEnable, trayMDriverIn1, trayMDriverIn2);
 // Ultrasonic Sensors
 NewPing sonar(frontUltrasonicTrig, frontUltrasonicEcho, 200);
 NewPing binFill(binUltrasonicTrig, binUltrasonicEcho, 40);
-//UART Serial Comm w/ RPi
+// UART serial Comm w/ RPi
 HardwareSerial PiComm(2);
 // Compass
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
@@ -93,18 +102,18 @@ void setup() {
   Wire.begin();
   
   // Initialize serial communication with a 9600 baud rate, through microUSB
-  // Serial.begin(9600);
-  // while (!Serial);  // wait for the serial port to open
-  // Serial.println("USB Serial Initialized"); // output to console when opened
+  Serial.begin(9600);
+  while (!Serial);  // wait for the serial port to open
+  Serial.println("USB Serial Initialized"); // output to console when opened
 
   // Initialize serial communication to RPi (9600 bps, 8 bits, No Parity, 1 Stop Bit)
   // If only connected to RPi, use next line and RX0/TX) pins
-  PiComm.begin(9600, SERIAL_8N1, espRX, espTX);
+  //PiComm.begin(9600, SERIAL_8N1, espRX, espTX);
   // If connected through USB to ESP use RX2/TX2 pins, for flashing
   //PiComm.begin(9600);
   //PiComm.setDebugOutput(true);
-  while(!PiComm); // wait for serial port to open
-  // // Serial.println("Serial Initialized"); // output to console when opened
+  //while(!PiComm); // wait for serial port to open
+  // Serial.println("Serial Initialized"); // output to console when opened
   
   // Initialize the SPI library
   SPI.begin();
@@ -125,16 +134,16 @@ void setup() {
   pinMode(track2Enable, OUTPUT);
   pinMode(frontUltrasonicTrig, OUTPUT);
   pinMode(binUltrasonicTrig, OUTPUT);
-  pinMode(BMIChipSelect, OUTPUT);
+  //pinMode(BMIChipSelect, OUTPUT);
   // Set pins mode for each input
   pinMode(frontUltrasonicEcho, INPUT);
   pinMode(binUltrasonicEcho, INPUT);
-  // Serial.println("Pins Defined"); // output to console that pins were defined
+  Serial.println("Pins Defined"); // output to console that pins were defined
 
   // Print error if magnetometor not initialized
   if(!mag.begin()) {
     /* There was a problem detecting the HMC5883 ... check your connections */
-    // Serial.println("Ooops, no HMC5883 detected ... Check your wiring!");
+    Serial.println("Ooops, no HMC5883 detected ... Check your wiring!");
     while(1);
   }
 
@@ -203,8 +212,8 @@ void turn(int degree) { // For L298Ns
   int initDegree = compassDegree();
   int targetDegree, halfwayDegree;
   // Print message to computer (troubleshooting)
-  // Serial.print("Initial degree of robot: ");
-  // Serial.println(initDegree);
+  Serial.print("Initial degree of robot: ");
+  Serial.println(initDegree);
 
   // Assign which motor will move forward/reverse based on turning
   if (degree < 0) {   // Negative degree = Turn right
@@ -239,6 +248,7 @@ void turn(int degree) { // For L298Ns
   else if (halfwayDegree < 0) {
     halfwayDegree = halfwayDegree + 360;
   }
+  Serial.println(halfwayDegree);
 
   unsigned short dutyCycle = 50;
   int currentDegree;
@@ -250,31 +260,34 @@ void turn(int degree) { // For L298Ns
     forwardMotor.forward();
     reverseMotor.backward();
     // Print message to computer (troubleshooting)
-    // Serial.print("Turn with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(forwardMotor.getSpeed());
+    Serial.print("Turn with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(forwardMotor.getSpeed());
     // Constantly check current degree reading and stop accelerating when halfway through turning
     currentDegree = compassDegree();
-    if (currentDegree >= (halfwayDegree) && currentDegree <= (halfwayDegree + 3)) {
+    Serial.println(currentDegree);
+    if (currentDegree == halfwayDegree || currentDegree == halfwayDegree + 1 || currentDegree == halfwayDegree - 1 || currentDegree == halfwayDegree + 2 || currentDegree == halfwayDegree - 2) {
       // Print message to computer (troubleshooting)
-      // Serial.print("Slowing turn at degree change: ");
-      // Serial.println(initDegree - currentDegree);
+      Serial.print("Slowing turn at degree change: ");
+      Serial.println(halfwayDegree);
       break;
     }
     delay(50);
   }
 
   // Keep turning even when max speed is reached, until reaching halfway point of turn
-  while (currentDegree >= (halfwayDegree) && currentDegree <= (halfwayDegree + 3)) {
+  while (currentDegree != halfwayDegree && currentDegree != halfwayDegree + 1 && currentDegree != halfwayDegree - 1 && currentDegree != halfwayDegree + 2 && currentDegree != halfwayDegree - 2) {
     currentDegree = compassDegree();
     // Print message to computer (troubleshooting)
-    // Serial.print("Current degree: ");
-    // Serial.println(currentDegree);
+    Serial.print("Current degree: ");
+    Serial.print(currentDegree);
+    Serial.print(" waiting for halfway angle: ");
+    Serial.println(halfwayDegree);
   }
   // Print message to computer (troubleshooting)
-  // Serial.print("Slowing turn at degree change: ");
-  // Serial.println(initDegree - currentDegree);
+  Serial.print("Slowing turn at degree: ");
+  Serial.println(currentDegree);
 
   // Decrease speed of turn after halfway (no sudden stop)
   for (; dutyCycle > 60; dutyCycle = dutyCycle - 5) {
@@ -284,31 +297,33 @@ void turn(int degree) { // For L298Ns
     forwardMotor.forward();
     reverseMotor.backward();
     // Print message to computer (troubleshooting)
-    // Serial.print("Turn with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(forwardMotor.getSpeed());
+    Serial.print("Turn with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(forwardMotor.getSpeed());
     // Constantly check current degree reading and stop when desired degree change is reached
     currentDegree = compassDegree();
-    if (currentDegree >= (targetDegree) && currentDegree <= (targetDegree + 3)) {
+    if (currentDegree == targetDegree || currentDegree == targetDegree + 1 || currentDegree == targetDegree - 1 || currentDegree == targetDegree + 2 || currentDegree == targetDegree - 2) {
       // Print message to computer (troubleshooting)
-      // Serial.print("Slowing turn at degree change: ");
-      // Serial.println(initDegree - currentDegree);
+      Serial.print("Slowing turn at degree change: ");
+      Serial.println(initDegree - currentDegree);
       break;
     }
     delay(50);
   }
 
   // Keep turning even when low speed is reached, until reaching desired degree change
-  while (currentDegree >= (targetDegree) && currentDegree <= (targetDegree + 3)) {
+  while (!(currentDegree > targetDegree -3  && currentDegree < targetDegree + 3)) {
     currentDegree = compassDegree();
     // Print message to computer (troubleshooting)
-    // Serial.print("Current degree: ");
-    // Serial.println(currentDegree);
+    Serial.print("Current degree: ");
+    Serial.println(currentDegree);
+    Serial.print("Target degree: ");
+    Serial.println(targetDegree);
   }
   // Print message to computer (troubleshooting)
-  // Serial.print("Stopping turn at degree change: ");
-  // Serial.println(initDegree - currentDegree);
+  Serial.print("Stopping turn at degree change: ");
+  Serial.println(initDegree - currentDegree);
 
   // Fully stop turning, should be facing object now
   forwardMotor.stop();
@@ -321,20 +336,20 @@ void openTray() {
   for (; dutyCycle < 250; dutyCycle = dutyCycle + 5) {
     trayMotor.setSpeed(dutyCycle);
     trayMotor.backward();
-    // Serial.print("Opening with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(trayMotor.getSpeed());
+    Serial.print("Opening with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
     delay(50);
   }
   // Move DC motor forward with decreasing speed
   for (; dutyCycle > 80; dutyCycle = dutyCycle - 5) {
     trayMotor.setSpeed(dutyCycle);
     trayMotor.backward();
-    // Serial.print("Opening with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(trayMotor.getSpeed());
+    Serial.print("Opening with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
     delay(50);
   }
 }
@@ -345,20 +360,20 @@ void closeTray() {
   for (; dutyCycle < 250; dutyCycle = dutyCycle + 5) {
     trayMotor.setSpeed(dutyCycle);
     trayMotor.forward();
-    // Serial.print("Clowing with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(trayMotor.getSpeed());
+    Serial.print("Clowing with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
     delay(50);
   }
   // Move DC motor forward with decreasing speed
   for (; dutyCycle > 80; dutyCycle = dutyCycle - 5) {
     trayMotor.setSpeed(dutyCycle);
     trayMotor.forward();
-    // Serial.print("Closing with duty cycle: ");
-    // Serial.print(dutyCycle);
-    // Serial.print(" with function reading of: ");
-    // Serial.println(trayMotor.getSpeed());
+    Serial.print("Closing with duty cycle: ");
+    Serial.print(dutyCycle);
+    Serial.print(" with function reading of: ");
+    Serial.println(trayMotor.getSpeed());
     delay(50);
   }
 }
@@ -382,8 +397,8 @@ void lowerShaft() {
 
   // Print message to computer (troubleshooting)
   lastPosition = shaftServo.read();
-  // Serial.print("Shaft servo value: ");
-  // Serial.println(lastPosition);
+  Serial.print("Shaft servo value: ");
+  Serial.println(lastPosition);
 }
 
 void raiseShaft() {
@@ -401,8 +416,8 @@ void raiseShaft() {
 
   // Print message to computer (troubleshooting)
   lastPosition = shaftServo.read();
-  // Serial.print("Shaft servo value: ");
-  // Serial.println(shaftServo.read());
+  Serial.print("Shaft servo value: ");
+  Serial.println(shaftServo.read());
 }
 
 void closeHands() {
@@ -413,8 +428,8 @@ void closeHands() {
 	}
 
   // Print message to computer (troubleshooting)
-  // Serial.print("Hand servo value: ");
-  // Serial.println(handServo.read());
+  Serial.print("Hand servo value: ");
+  Serial.println(handServo.read());
 }
 
 void openHands() {
@@ -425,13 +440,15 @@ void openHands() {
 	}
 
   // Print message to computer (troubleshooting)
-  // Serial.print("Hand servo value: ");
-  // Serial.println(handServo.read());
+  Serial.print("Hand servo value: ");
+  Serial.println(handServo.read());
 }
 
+int currentAngle;
 void loop() {
   // put your main code here, to run repeatedly:
   // Re-initialize these necessary variable at every iteration of loop
+  currentAngle = 0;
   char data = 0;
   bool error = false;
   
@@ -451,8 +468,8 @@ void loop() {
           int degrees = PiComm.parseInt();
 
           // Print message to computer (troubleshooting)
-          // Serial.print("Turning to degree: ");
-          // Serial.println(degrees);
+          Serial.print("Turning to degree: ");
+          Serial.println(degrees);
   
           turn(degrees);
 
@@ -488,10 +505,10 @@ void loop() {
             rightMotor.forward();
             leftMotor.forward();
             // Print message to computer (troubleshooting)
-            // Serial.print("Forward with duty cycle: ");
-            // Serial.print(dutyCycle);
-            // Serial.print(" with function reading of: ");
-            // Serial.println(rightMotor.getSpeed());
+            Serial.print("Forward with duty cycle: ");
+            Serial.print(dutyCycle);
+            Serial.print(" with function reading of: ");
+            Serial.println(rightMotor.getSpeed());
             // Constantly check if another instruction is sent, if so break out of case
             if (PiComm.available()) {
               data = PiComm.read();
@@ -502,8 +519,8 @@ void loop() {
             ping = sonar.ping_median(20);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -524,8 +541,8 @@ void loop() {
             ping = sonar.ping_median(25);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -564,10 +581,10 @@ void loop() {
             rightMotor.forward();
             leftMotor.forward();
             // Print message to computer (troubleshooting)
-            // Serial.print("Forward with duty cycle: ");
-            // Serial.print(dutyCycle);
-            // Serial.print(" with function reading of: ");
-            // Serial.println(rightMotor.getSpeed());
+            Serial.print("Forward with duty cycle: ");
+            Serial.print(dutyCycle);
+            Serial.print(" with function reading of: ");
+            Serial.println(rightMotor.getSpeed());
             // Constantly check if another instruction is sent, if so break out of case
             if (PiComm.available()) {
               data = PiComm.read();
@@ -578,8 +595,8 @@ void loop() {
             ping = sonar.ping_median(20);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, stop and break out of case
             if (distance > 0 && distance < 15) {
               PiComm.write('7');
@@ -602,8 +619,8 @@ void loop() {
             ping = sonar.ping_median(25);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, stop and break out of case
             if (distance > 0 && distance < 15) {
               PiComm.write('7');
@@ -638,10 +655,10 @@ void loop() {
             rightMotor.forward();
             leftMotor.forward();
             // Print message to computer (troubleshooting)
-            // Serial.print("Forward with duty cycle: ");
-            // Serial.print(dutyCycle);
-            // Serial.print(" with function reading of: ");
-            // Serial.println(rightMotor.getSpeed());
+            Serial.print("Forward with duty cycle: ");
+            Serial.print(dutyCycle);
+            Serial.print(" with function reading of: ");
+            Serial.println(rightMotor.getSpeed());
             // Constantly check if another instruction is sent, if so break out of case
             if (PiComm.available()) {
               data = PiComm.read();
@@ -652,8 +669,8 @@ void loop() {
             ping = sonar.ping_median(20);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -674,8 +691,8 @@ void loop() {
             ping = sonar.ping_median(25);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -699,10 +716,10 @@ void loop() {
             leftMotor.setSpeed(dutyCycle);
             leftMotor.forward();
             // Print message to computer (troubleshooting)
-            // Serial.print("Left with duty cycle: ");
-            // Serial.print(dutyCycle);
-            // Serial.print(" While right motor reading of: ");
-            // Serial.println(rightMotor.getSpeed());
+            Serial.print("Left with duty cycle: ");
+            Serial.print(dutyCycle);
+            Serial.print(" While right motor reading of: ");
+            Serial.println(rightMotor.getSpeed());
             // Constantly check if another instruction is sent, if so break out of case
             if (PiComm.available()) {
               data = PiComm.read();
@@ -713,8 +730,8 @@ void loop() {
             ping = sonar.ping_median(20);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -737,7 +754,7 @@ void loop() {
         }
 
         case 'P': { // Engage pickup function
-          // Serial.println("Pickup function here");
+          Serial.println("Pickup function here");
           // Open hands while still above bin then lower them (around the object)
           openHands();
           lowerShaft();
@@ -761,10 +778,10 @@ void loop() {
             rightMotor.setSpeed(dutyCycle);
             rightMotor.forward();
             // Print message to computer (troubleshooting)
-            // Serial.print("Right with duty cycle: ");
-            // Serial.print(dutyCycle);
-            // Serial.print(" While left motor reading of: ");
-            // Serial.println(leftMotor.getSpeed());
+            Serial.print("Right with duty cycle: ");
+            Serial.print(dutyCycle);
+            Serial.print(" While left motor reading of: ");
+            Serial.println(leftMotor.getSpeed());
             // Constantly check if another instruction is sent, if so break out of case
             if (PiComm.available()) {
               data = PiComm.read();
@@ -775,8 +792,8 @@ void loop() {
             ping = sonar.ping_median(20);
             distance = sonar.convert_cm(ping);
             // Print message to computer (troubleshooting)
-            // Serial.print("Sonar reading: ");
-            // Serial.println(distance);
+            Serial.print("Sonar reading: ");
+            Serial.println(distance);
             // If object is close, break out of case
             if (distance > 0 && distance < 50) {
               PiComm.write('7');
@@ -794,20 +811,20 @@ void loop() {
         }
 
         case 'T': { // Do a 180
-          // Serial.println("Doing a full turn");
+          Serial.println("Doing a full turn");
           turn(180);
           break;
         }
 
         default: {
-          // PiComm.println("Serial communication error");
-          // // Serial.println("Serial communication error");
+          PiComm.println("Serial communication error");
+          // Serial.println("Serial communication error");
           error = true;
           break;
         }
       }
     } 
-    // else Serial.println("Waiting for RPI or PS5 comms");
+    else Serial.println("Waiting for RPI or PS5 comms");
   } 
   //End of RPI code line
   else if (ps5.isConnected()) { // Manual testing through PS5 controller
@@ -836,10 +853,64 @@ void loop() {
       leftMotor.stop();
     }
 
+    if (ps5.Options()) {
+      sensor_t sensor;
+      mag.getSensor(&sensor);
+      Serial.println("------------------------------------");
+      Serial.print  ("Sensor:       "); Serial.println(sensor.name);
+      Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
+      Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
+      Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" uT");
+      Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" uT");
+      Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" uT");  
+      Serial.println("------------------------------------");
+      Serial.println("");
+      delay(500);
+
+      while(!ps5.Share()) {
+        // Get a new sensor event 
+      sensors_event_t event; 
+      mag.getEvent(&event);
+    
+      // Display the results (magnetic vector values are in micro-Tesla (uT)) 
+      Serial.print("X: "); Serial.print(event.magnetic.x); Serial.print("  ");
+      Serial.print("Y: "); Serial.print(event.magnetic.y); Serial.print("  ");
+      Serial.print("Z: "); Serial.print(event.magnetic.z); Serial.print("  ");Serial.println("uT");
+
+      // Hold the module so that Z is pointing 'up' and you can measure the heading with x&y
+      // Calculate heading when the magnetometer is level, then correct for signs of axis.
+      float heading = atan2(event.magnetic.y, event.magnetic.x);
+      
+      // Once you have your heading, you must then add your 'Declination Angle', which is the 'Error' of the magnetic field in your location.
+      // Find yours here: http://www.magnetic-declination.com/
+      // Mine is: -13* 2' W, which is ~13 Degrees, or (which we need) 0.22 radians
+      // If you cannot find your Declination, comment out these two lines, your compass will be slightly off.
+      float declinationAngle = 0.0573;
+      heading += declinationAngle;
+      Serial.println(heading);
+      
+      // Correct for when signs are reversed.
+      if(heading < 0)
+        heading += 2*PI;
+        
+      // Check for wrap due to addition of declination.
+      if(heading > 2*PI)
+        heading -= 2*PI;
+      
+      Serial.println(heading);
+      // Convert radians to degrees for readability.
+      float headingDegrees = heading * 180/PI; 
+      
+      Serial.print("Heading (degrees): "); Serial.println(headingDegrees);
+      
+      delay(500);
+      }
+    }
+
     // L1 - Turn left
     if (ps5.L1()) {
-      leftMotor.setSpeed(100);
-      rightMotor.setSpeed(100);
+      leftMotor.setSpeed(150);
+      rightMotor.setSpeed(150);
       leftMotor.backward();
       rightMotor.forward();
 
@@ -850,9 +921,9 @@ void loop() {
     }
     // L2 - Turn right
     if (ps5.R1()) {
-      leftMotor.setSpeed(100);
-      rightMotor.setSpeed(100);
+      leftMotor.setSpeed(150);
       leftMotor.forward();
+      rightMotor.setSpeed(150);
       rightMotor.backward();
 
       while(ps5.R1()){
@@ -873,7 +944,11 @@ void loop() {
         rightMotor.setSpeed(ps5.L2Value());
         rightMotor.backward();
         leftMotor.backward();
-        // Serial.println("Moving back");
+        Serial.println("Moving back");
+        Serial.print("Right speed: ");
+        Serial.print(rightMotor.getSpeed());
+        Serial.print(" Left speed: ");
+        Serial.println(leftMotor.getSpeed());
       } else {
         leftMotor.stop();
         rightMotor.stop();
@@ -885,18 +960,21 @@ void loop() {
         rightMotor.setSpeed(ps5.R2Value());
         rightMotor.forward();
         leftMotor.forward();
-        // Serial.println("Moving forward");
+        Serial.println("Moving forward");
+        Serial.print(rightMotor.getSpeed());
+        Serial.print(" Left speed: ");
+        Serial.println(leftMotor.getSpeed());
       } else {
         leftMotor.stop();
         rightMotor.stop();
       }
     } else {
-      if(leftMotor.getSpeed() > 0 || rightMotor.getSpeed() > 0){
+      if (leftMotor.getSpeed() > 0 || rightMotor.getSpeed() > 0){
         leftMotor.setSpeed(0);
         rightMotor.setSpeed(0);
         leftMotor.stop();
         rightMotor.stop();
-        // Serial.println("Reset speed to 0");
+        Serial.println("Reset speed to 0");
       }
       
     }
@@ -907,7 +985,7 @@ void loop() {
   delay(100);
   // If there was an error detected then print msg to computer
   if (error) {
-    // Serial.println("Something went wrong!");
+    Serial.println("Something went wrong!");
   }
   // Delay for visual troubleshooting
   //delay(1000);
