@@ -831,6 +831,11 @@ void loop() {
       turn(45);
     }
 
+    if (ps5.PSButton()) {
+      rightMotor.stop();
+      leftMotor.stop();
+    }
+
     // L1 - Turn left
     if (ps5.L1()) {
       leftMotor.setSpeed(100);
