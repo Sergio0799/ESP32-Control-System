@@ -52,7 +52,7 @@ const int espTX = 1;
 const int CompassData = 21;
 // SPI Communication w/ BMI
 const int BMIChipSelect = 5;
-// const int BMISerialClock = 18;
+const int BMISerialClock = 18;
 const int BMIMISO = 19;
 const int BMIMOSI = 23;
 
@@ -201,16 +201,17 @@ void turn(int degree) { // For L298Ns
 
   // Get degree robot is initially facing
   int initDegree = compassDegree();
+  int targetDegree, halfwayDegree;
   // Print message to computer (troubleshooting)
   // Serial.print("Initial degree of robot: ");
   // Serial.println(initDegree);
 
   // Assign which motor will move forward/reverse based on turning
-  if (degree < 0) {
+  if (degree < 0) {   // Negative degree = Turn right
     forwardMotor = leftMotor;
     reverseMotor = rightMotor;
   }
-  else if (degree > 0) {
+  else if (degree > 0) {  // Positive degree = Turn left
     forwardMotor = rightMotor;
     reverseMotor = leftMotor;
   }
@@ -218,8 +219,29 @@ void turn(int degree) { // For L298Ns
     
   }
 
+  // Correct for any turns made past the 0/360 degree point (North)
+  if ((initDegree - degree) > 360) {
+    targetDegree = initDegree - degree - 360;
+    halfwayDegree = initDegree - (degree / 2) - 360;
+  }
+  else if ((initDegree - degree) < 0) {
+    targetDegree = initDegree - degree + 360;
+    halfwayDegree = initDegree - (degree / 2) + 360;
+  }
+  else {
+    targetDegree = initDegree - degree;
+    halfwayDegree = initDegree - (degree / 2);
+  }
+
+  if (halfwayDegree > 360) {
+    halfwayDegree = halfwayDegree - 360;
+  }
+  else if (halfwayDegree < 0) {
+    halfwayDegree = halfwayDegree + 360;
+  }
+
   unsigned short dutyCycle = 50;
-  int currentDegree, halfwayDegree = degree / 2;
+  int currentDegree;
   // Turn robot at incremental speed (no sudden burst of movement)
   for (; dutyCycle < 200; dutyCycle = dutyCycle + 5) {
     forwardMotor.setSpeed(dutyCycle);
@@ -234,17 +256,17 @@ void turn(int degree) { // For L298Ns
     // Serial.println(forwardMotor.getSpeed());
     // Constantly check current degree reading and stop accelerating when halfway through turning
     currentDegree = compassDegree();
-    if ((initDegree - currentDegree) == halfwayDegree) {
+    if (currentDegree >= (halfwayDegree) && currentDegree <= (halfwayDegree + 3)) {
       // Print message to computer (troubleshooting)
       // Serial.print("Slowing turn at degree change: ");
       // Serial.println(initDegree - currentDegree);
       break;
     }
-    delay(100);
+    delay(50);
   }
 
   // Keep turning even when max speed is reached, until reaching halfway point of turn
-  while ((initDegree - currentDegree) != halfwayDegree) {
+  while (currentDegree >= (halfwayDegree) && currentDegree <= (halfwayDegree + 3)) {
     currentDegree = compassDegree();
     // Print message to computer (troubleshooting)
     // Serial.print("Current degree: ");
@@ -268,17 +290,17 @@ void turn(int degree) { // For L298Ns
     // Serial.println(forwardMotor.getSpeed());
     // Constantly check current degree reading and stop when desired degree change is reached
     currentDegree = compassDegree();
-    if ((initDegree - currentDegree) == degree) {
+    if (currentDegree >= (targetDegree) && currentDegree <= (targetDegree + 3)) {
       // Print message to computer (troubleshooting)
       // Serial.print("Slowing turn at degree change: ");
       // Serial.println(initDegree - currentDegree);
       break;
     }
-    delay(100);
+    delay(50);
   }
 
   // Keep turning even when low speed is reached, until reaching desired degree change
-  while ((initDegree - currentDegree) != degree) {
+  while (currentDegree >= (targetDegree) && currentDegree <= (targetDegree + 3)) {
     currentDegree = compassDegree();
     // Print message to computer (troubleshooting)
     // Serial.print("Current degree: ");
