@@ -12,7 +12,10 @@ Minimum pulse width for TowerPro MG-996R (0 degrees): int minUs = 365;
 Maximum pulse width for TowerPro MG-996R (180 degrees): int maxUs = (2460-2480)
 -------------------------------------------------------------------
 
-
+//OTA functions
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 ___________________________________________________________________
     Code to test UART serial communication through GPIO with RPi
